@@ -1,0 +1,158 @@
+                                 Strongswan Installation on Cent OS 
+
+OS version: Cent OS 7 
+Linux Kernel required: 3.10.0-514
+
+Step1 - Install strongSwan: 
+The strongSwan packages are available in the Extra Packages for Enterprise Linux (EPEL) repository. We should enable EPEL first, then install strongSwan.
+
+yum install http://ftp.nluug.nl/pub/os/Linux/distr/fedora-epel/7/x86_64/Packages/e/epel-release-7-11.noarch.rpm
+yum install strongswan openssl
+
+
+Step2 - Generate certificates: 
+Both the VPN client and server need a certificate to identify and authenticate themselves. I have prepared two shell scripts to generate and sign the certificates. Server_key.sh and client_key.sh are available in files/scripts section.  
+First, We move these two scripts file into  /etc/strongswan/ipsec.d. Then: 
+
+cd /etc/strongswan/ipsec.d
+chmod a+x server_key.sh
+chmod a+x client_key.sh
+
+Organization names can be changed. If you want to change it, open the .sh files and replace O’s value with organization name. e.g,  O=YOUR_ORGANIZATION_NAME.
+
+Next, use server_key.sh with the IP address of your server to generate the certificate authority (CA) key and certificate for server. Replace SERVER_IP with the IP address of your Vultr VPS.
+
+./server_key.sh SERVER_IP
+Generate the client key, certificate, and P12 file. Here, I will create the certificate and P12 file for the VPN user "john".
+
+./client_key.sh test test@gmail.com  aaa
+Replace "test" and his email with yours before running the script.
+
+After the certificates for client and server are generated, copy /etc/strongswan/ipsec.d/test.p12 and /etc/strongswan/ipsec.d/cacerts/strongswanCert.pem to your local computer.
+
+
+Step3 -Configure strongSwan: 
+Open the strongSwan IPSec configuration file.
+
+vi /etc/strongswan/ipsec.conf
+Replace its content with the following text: 
+
+config setup
+    charondebug="ike 1, knl 1, cfg 0"
+    uniqueids=never
+
+conn AndroidCon
+    auto=add
+    compress=no
+    type=tunnel
+    leftfirewall=yes
+    keyexchange=ikev2
+    fragmentation=yes
+    forceencaps=yes
+    ike=3des-sha1-prfsha1-modp1024,aes128-sha256-ecp256,aes256-sha384-ecp384,aes128-sha256-modp2048,aes128-sha1-modp2048,aes256-sha384-modp4096,aes256-sha256-modp4096,aes256-sha1-modp4096,aes128-sha256-modp1536,aes128-sha1-modp1536,aes256-sha384-modp2048,aes256-sha256-modp2048,aes256-sha1-modp2048,aes128-sha256-modp1024,aes128-sha1-modp1024,aes256-sha384-modp1536,aes256-sha256-modp1536,aes256-sha1-modp1536,aes256-sha384-modp1024,aes256-sha256-modp1024,aes256-sha1-modp1024!
+    esp=3des-sha1-prfsha1-modp1024,aes128gcm16-ecp256,aes256gcm16-ecp384,aes128-sha256-ecp256,aes256-sha384-ecp384,aes128-sha256-modp2048,aes128-sha1-modp2048,aes256-sha384-modp4096,aes256-sha256-modp4096,aes256-sha1-modp4096,aes128-sha256-modp1536,aes128-sha1-modp1536,aes256-sha384-modp2048,aes256-sha256-modp2048,aes256-sha1-modp2048,aes128-sha256-modp1024,aes128-sha1-modp1024,aes256-sha384-modp1536,aes256-sha256-modp1536,aes256-sha1-modp1536,aes256-sha384-modp1024,aes256-sha256-modp1024,aes256-sha1-modp1024,aes128gcm16,aes256gcm16,aes128-sha256,aes128-sha1,aes256-sha384,aes256-sha256,aes256-sha1!   dpdaction=clear
+    dpddelay=300s
+    rekey=yes
+    left=%any
+    leftid=%defaultroute
+    leftcert=/root/strongswan/certs/vpnHostCert.pem
+    leftsendcert=always
+    leftsubnet=0.0.0.0/0
+    rightauth=eap-mschapv2
+    right=%any
+    rightid=%any
+    rightdns=8.8.8.8,8.8.4.4
+    rightsourceip=10.24.24.0/24
+    rightsendcert=never
+    eap_identity=%any
+
+
+conn IOS-Conn
+    keyexchange=ikev2
+    leftsendcert=never
+     ike=3des-sha1-prfsha1-modp1024,aes128-sha256-ecp256,aes256-sha384-ecp384,aes128-sha256-modp2048,aes128-sha1-modp2048,aes256-sha384-modp4096,aes256-sha256-modp4096,aes256-sha1-modp4096,aes128-sha256-modp1536,aes128-sha1-modp1536,aes256-sha384-modp2048,aes256-sha256-modp2048,aes256-sha1-modp2048,aes128-sha256-modp1024,aes128-sha1-modp1024,aes256-sha384-modp1536,aes256-sha256-modp1536,aes256-sha1-modp1536,aes256-sha384-modp1024,aes256-sha256-modp1024,aes256-sha1-modp1024,aes256-aes128-3des-sha1-modp1024!
+    esp=3des-sha1-prfsha1-modp1024,aes128gcm16-ecp256,aes256gcm16-ecp384,aes128-sha256-ecp256,aes256-sha384-ecp384,aes128-sha256-modp2048,aes128-sha1-modp2048,aes256-sha384-modp4096,aes256-sha256-modp4096,aes256-sha1-modp4096,aes128-sha256-modp1536,aes128-sha1-modp1536,aes256-sha384-modp2048,aes256-sha256-modp2048,aes256-sha1-modp2048,aes128-sha256-modp1024,aes128-sha1-modp1024,aes256-sha384-modp1536,aes256-sha256-modp1536,aes256-sha1-modp1536,aes256-sha384-modp1024,aes256-sha256-modp1024,aes256-sha1-modp1024,aes128gcm16,aes256gcm16,aes128-sha256,aes128-sha1,aes256-sha384,aes256-sha256,aes256-sha1,aes256-3des-sha256-sha1!    forceencaps=yes
+    authby=secret
+    auto=add
+    right=%any
+    rightid=%any
+    rightdns=8.8.8.8,8.8.4.4
+    rightsourceip=10.24.24.0/24
+    eap_identity=%any
+    leftsubnet=0.0.0.0/0
+
+---------------------------------------------------------------
+
+Now, 
+Edit the strongSwan configuration file, strongswan.conf.
+vi /etc/strongswan/strongswan.conf
+Delete everything and replace it with the following.
+
+charon {
+    load_modular = yes
+    duplicheck.enable = no
+    compress = yes
+    plugins {
+            include strongswan.d/charon/*.conf
+    }
+    dns1 = 8.8.8.8
+    dns2 = 8.8.4.4
+    nbns1 = 8.8.8.8
+    nbns2 = 8.8.4.4
+}
+
+include strongswan.d/*.conf
+
+
+
+Step4 - ADD PSK (IOS) and Credentials (ANROID): 
+ : PSK tester
+ : RSA /root/strongswan/private/vpnHostKey.pem
+PLVPN-US : EAP "pl-17a8980a89"
+jonny : EAP "jonny"
+test : EAP "test"
+NOTE: spaces in this document are very important , this file is case sensitive e.g, space before and after : is very important.
+
+
+Step5 - Allow IPv4 forwarding: 
+Edit /etc/sysctl.conf to allow forwarding in the Linux kernel.
+vi /etc/sysctl.conf
+Add the following line into the file.
+net.ipv4.ip_forward=1
+Save the file, then apply the changes: 
+sysctl -p
+
+Step6 - Configure the firewall:
+
+Open the firewall for your VPN on the server.
+
+firewall-cmd --permanent --add-service="ipsec"
+firewall-cmd --permanent --add-port=4500/udp
+firewall-cmd --permanent --add-masquerade
+firewall-cmd –reload
+
+Start VPN 
+systemctl start strongswan
+systemctl enable strongswan
+
+StrongSwan is now is running on your server. Install the strongswanCert.pem and .p12 certificate files into your client. You will now be able to join your private network.
+
+AND We’re DONE :) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
