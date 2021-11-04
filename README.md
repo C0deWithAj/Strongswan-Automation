@@ -67,3 +67,8 @@ After the certificates for client and server are generated, copy /etc/strongswan
 
 ### Note: 
 Rest of the strongswan configuration part is provided in the "Strongswan_configuration.odt" inside the Repo. 
+## 🛠 Tools & Language
+- Bash shell scripting 
+- Python (vici health stats using cron job)
+- SSH
+
